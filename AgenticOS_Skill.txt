@@ -1,0 +1,206 @@
+I want to built my claude code as an agentic os
+
+Persistent memory — Context that survives between sessions
+Self-improving skills — Outputs that get better based on past runs
+Scheduled workflows — Tasks that run automatically on a timer
+Shared business context — A single source of truth about your company that every skill reads from
+These four layers stack on top of each other. Each one makes the others more powerful. Together, they turn Claude Code from a smart assistant into something that actually runs your operations.
+
+Layer 1: Persistent Memory
+
+The Problem With Stateless Sessions
+Every time you start a new Claude Code session, you start from scratch. No memory of what you discussed last time, no awareness of decisions made, no accumulated knowledge about your business. This is fine for one-off tasks. It’s a serious problem for anything ongoing.
+
+The solution is to write memory into files that Claude reads at the start of every session. This is simpler than it sounds. You’re not building a database. You’re building a set of markdown files that serve as structured notes.
+
+There are two distinct types of memory worth maintaining separately, and confusing them creates problems. Understanding the difference between shared brand context and a context folder is the first design decision you need to make.
+
+The Context Folder
+Your context folder is a collection of files that Claude reads as part of its working memory for a given task. Think of it as the inbox for a session — what does this particular skill or workflow need to know right now?
+
+A typical context folder might contain:
+
+recent-decisions.md — decisions made in the last 30 days that affect current work
+active-projects.md — what’s in flight, what’s blocked, what’s waiting
+constraints.md — hard limits, deadlines, budget guardrails
+notes-from-last-run.md — output from the previous session of this skill
+The context folder is task-specific and gets updated after each run. It’s ephemeral in the sense that its contents rotate, but it’s persistent in the sense that it always exists and always has something in it.
+
+The Persistent Memory File
+Separate from the context folder, you want a memory.md file (or similar) that stores facts that don’t expire. Things like:
+
+Key metrics you always want in view
+Decisions that are settled and shouldn’t be re-litigated
+Relationships between team members, clients, or projects
+Recurring patterns Claude has noticed in your work
+Building a proper persistent memory system for Claude Code agents means thinking about what should persist indefinitely versus what should age out. A useful heuristic: if you’d have to re-explain it every time you hired a new employee, it belongs in persistent memory.
+
+How Memory Gets Updated
+This is where most setups break down. People create memory files but never update them, so they become stale and eventually useless.
+
+The fix is to build memory updates into the wrap-up step of every skill run. At the end of each task, Claude writes a brief summary to memory.md and updates notes-from-last-run.md. This takes seconds and keeps the memory layer alive.
+
+Layer 2: Self-Improving Skills
+What a Skill Is
+In this architecture, a “skill” is a Claude Code session with a defined purpose, a specific set of files it reads, and a specific output it produces. Writing a weekly email digest is a skill. Generating a competitor summary is a skill. Reviewing pull requests for style consistency is a skill.
+
+Skills are the units of work. The agentic OS is what connects them.
+
+The Learnings File
+The simplest self-improvement mechanism is a learnings.md file attached to each skill. After every run, Claude appends what it noticed about the output quality — what worked, what missed the mark, what it would do differently.
+
+Before the next run, Claude reads learnings.md first. Over time, this creates a feedback loop where the skill genuinely gets better. Not because the model improved, but because the accumulated notes guide it toward better outputs.
+
+This is the learnings loop in action. It sounds almost too simple, but it works because language models are very good at applying written heuristics when those heuristics are in context.
+
+The Eval File
+For skills where output quality can be measured, add an eval.json file. This is a structured list of criteria with weights. After each run, Claude scores its own output against these criteria and logs the score.
+
+A content skill might have criteria like:
+
+json
+
+{
+  "criteria": [
+    { "name": "on_brand_tone", "weight": 0.3 },
+    { "name": "accurate_facts", "weight": 0.4 },
+    { "name": "clear_structure", "weight": 0.3 }
+  ]
+}
+Scores accumulate over runs. When a score drops, it’s a signal that something changed — maybe the inputs are worse, maybe a constraint was added, maybe the skill needs its learnings file updated. Building a self-improving skill with eval.json gives you a quantitative view of whether your agentic OS is actually improving over time.
+
+Skill File Structure
+Each skill should live in its own folder with a consistent structure:
+
+plaintext
+
+/skills
+  /content-draft
+    skill.md          ← instructions for this skill
+    learnings.md      ← accumulated notes on output quality
+    eval.json         ← scoring criteria
+    last-output.md    ← most recent output (for reference)
+    context/          ← task-specific inputs for this run
+This makes skills modular. You can add, remove, or modify a skill without touching anything else in the system.
+
+Layer 3: Scheduled Workflows
+Why Scheduling Matters
+Most AI workflows are reactive. Something happens, you open Claude Code, you ask it to handle it. That’s fine, but it means your agentic OS only works when you’re actively using it.
+
+Scheduling flips this. Tasks run on their own, on a timer, without you having to trigger them. Your system monitors, synthesizes, and acts while you’re doing other things.
+
+There are two main scheduling patterns worth knowing: Claude Code Loop and scheduled tasks differ in meaningful ways, and choosing the right one depends on what you’re trying to automate.
+
+The Heartbeat Pattern
+
+The heartbeat is a lightweight skill that runs frequently — every hour, every few hours, or daily — and checks the state of your system. It’s not doing heavy work. It’s asking: is anything off? Does anything need attention? Should I trigger another skill?
+
+A heartbeat skill might:
+
+Check for new items in a monitored folder or inbox
+Verify that other skills ran successfully
+Flag anomalies in metrics or data
+Queue tasks for deeper skills to handle
+Keeping your AI agent proactive with the heartbeat pattern means your system is always aware of its environment, not just aware when you look at it.
+
+Setting Up Scheduling Without a Server
+
+You don’t need dedicated infrastructure to schedule Claude Code runs. On macOS, launchd handles this natively. On Linux, a simple cron entry works. On Windows, Task Scheduler does the same job.
+
+The pattern is:
+
+Write a shell script that opens Claude Code with a specific skill instruction
+Schedule that script to run at the desired interval
+Have the skill write its outputs to a known location
+Have the heartbeat check that location
+Running scheduled AI agents without a server is genuinely simple once you have the skill structure in place. The hard part is designing the skills, not the scheduling.
+
+The Wrap-Up Skill
+
+Every scheduled workflow should end with a wrap-up step. This is a brief Claude task that:
+
+Logs what was done
+Updates relevant memory files
+Notes any errors or anomalies
+Prepares the context folder for the next run
+Building a self-maintaining AI system with heartbeat and wrap-up skills means the system handles its own housekeeping. You don’t have to manually clean up context files or remind Claude what happened last time.
+
+Layer 4: Shared Business Context
+The Business Brain
+If you have more than one skill, they need to share a common understanding of your business. Otherwise, each skill operates in isolation — your content skill doesn’t know what your research skill found, your scheduling skill doesn’t know what your planning skill decided.
+
+The solution is a shared business-brain.md file (or a /brand-context/ folder) that every skill reads before doing anything. This file contains:
+
+What your company does and who it serves
+Brand voice and communication guidelines
+Current strategic priorities
+Key people, relationships, and org structure
+Standing decisions and policies
+The business brain pattern for Claude Code is what makes your skills coherent as a system rather than isolated tools. Without it, you’ll get skills that contradict each other or miss obvious context.
+
+Structuring the Business Brain
+The business brain should be organized so Claude can scan it efficiently. A good structure:
+
+markdown
+
+# Company Overview
+[2-3 sentences on what the business does]
+
+# Current Priorities
+[Bulleted list of top 3-5 priorities this quarter]
+
+# Brand Voice
+[Tone, style, what to avoid]
+
+# Key Relationships
+[Important clients, partners, stakeholders]
+
+# Standing Decisions
+[Things that are settled and don't need revisiting]
+
+# What We Don't Do
+[Constraints, out-of-scope areas, hard limits]
+Keep it under 1,000 words. Long context files get skimmed, not read. If a section grows too long, move it to a dedicated file and link to it.
+
+Keeping It Current
+
+The business brain is only useful if it reflects reality. Assign someone (or a skill) to review and update it monthly. A good practice: at the end of each quarter, have Claude run a review skill that reads the business brain, compares it to recent outputs and decisions, and flags anything that looks outdated.
+
+Chaining Skills Into End-to-End Workflows
+How Skill Chaining Works
+Individual skills are useful. Chained skills are where the real leverage comes from.
+
+A chain is a sequence of skills where the output of one becomes the input to the next. For example:
+
+Research skill — Pulls together relevant information on a topic
+Synthesis skill — Distills that research into key points
+Draft skill — Writes a first draft based on the synthesis
+Review skill — Checks the draft against brand guidelines and past learnings
+Publish skill — Formats and delivers the final output
+Building a 5-skill agent workflow for content marketing is a concrete example of what this looks like in practice. The principle applies to almost any repeatable business process.
+
+Passing Context Between Skills
+Each skill writes its output to a known location. The next skill in the chain reads from that location as its input. The /context/ folder inside each skill is where handoffs happen.
+
+A simple convention: every skill writes a handoff.md file to its own context folder. The next skill is instructed to read [previous-skill]/context/handoff.md before starting. This makes the chain explicit and easy to debug.
+
+Chaining Claude Code skills into end-to-end workflows works best when each skill has a narrow, clear job. Skills that try to do too much become hard to chain and hard to improve.
+
+Multi-Agent Debate
+For high-stakes outputs, you can run the same task through multiple skill instances and compare results. This is the agent chat rooms pattern — multiple agents produce drafts, a final skill reviews all of them and synthesizes the best elements.
+
+It’s more expensive in terms of inference time, but for critical decisions or documents, the quality improvement is usually worth it.
+
+The Compounding Effect Over Time
+Why This Gets Better on Its Own
+The most underrated aspect of this architecture is that it compounds. Every run adds to the learnings files. Every skill run updates the memory layer. Every evaluation adds a data point.
+
+After a few weeks of consistent use, your skills have a detailed record of what good output looks like for your specific business. The agent isn’t smarter in a model sense — but it’s smarter in the sense that it has far more relevant context to work from.
+
+This is the compounding knowledge loop in practice. The system doesn’t just maintain quality — it improves it, automatically, without you having to retrain anything or update prompts manually.
+
+When to Refactor
+Expect to refactor every 4-6 weeks early on. Skills will accumulate bloated learnings files. Memory files will get redundant. Context folders will have stale content.
+
+A quarterly refactor session — reviewing all skills, pruning learnings files, updating the business brain — keeps the system clean and fast. This can itself be a skill. Write a “system review” skill that reads all your memory and learnings files, identifies redundancy, and produces a cleaned-up version for you to review.
+
